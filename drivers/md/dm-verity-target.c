@@ -1250,7 +1250,6 @@ static struct target_type verity_target = {
 	.dtr		= verity_dtr,
 	.map		= verity_map,
 	.status		= verity_status,
-	.prepare_ioctl	= verity_prepare_ioctl,
 	.iterate_devices = verity_iterate_devices,
 	.io_hints	= verity_io_hints,
 };

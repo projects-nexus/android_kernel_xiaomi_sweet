@@ -490,7 +490,6 @@ static struct target_type default_key_target = {
 	.dtr			= default_key_dtr,
 	.map			= default_key_map,
 	.status			= default_key_status,
-	.prepare_ioctl		= default_key_prepare_ioctl,
 	.iterate_devices	= default_key_iterate_devices,
 	.io_hints		= default_key_io_hints,
 };
