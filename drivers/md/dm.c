@@ -441,7 +441,7 @@ retry:
 		goto out;
 	}
 
-	r = tgt->type->prepare_ioctl(tgt, bdev, mode);
+	r = tgt->type->prepare_ioctl(tgt, bdev);
 	if (r < 0)
 		goto out;
 
