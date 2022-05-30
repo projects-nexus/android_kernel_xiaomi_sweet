@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1178,6 +1179,39 @@ static void do_gbif_halt(struct kgsl_device *device, u32 reg, u32 ack_reg,
 	dev_err(device->dev, "%s GBIF halt timed out\n", client);
 }
 
+static void do_gbif_halt(struct kgsl_device *device, u32 reg, u32 ack_reg,
+	u32 mask, const char *client)
+{
+	u32 ack;
+	unsigned long t;
+
+	kgsl_regwrite(device, reg, mask);
+
+	t = jiffies + msecs_to_jiffies(100);
+	do {
+		kgsl_regread(device, ack_reg, &ack);
+		if ((ack & mask) == mask)
+			return;
+
+		/*
+		 * If we are attempting recovery in case of stall-on-fault
+		 * then the halt sequence will not complete as long as SMMU
+		 * is stalled.
+		 */
+		kgsl_mmu_pagefault_resume(&device->mmu);
+
+		usleep_range(10, 100);
+	} while (!time_after(jiffies, t));
+
+	/* Check one last time */
+	kgsl_mmu_pagefault_resume(&device->mmu);
+
+	kgsl_regread(device, ack_reg, &ack);
+	if ((ack & mask) == mask)
+		return;
+
+	dev_err(device->dev, "%s GBIF halt timed out\n", client);
+}
 static void a6xx_llm_glm_handshake(struct kgsl_device *device)
 {
 	unsigned int val;
