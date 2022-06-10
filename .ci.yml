@@ -6,11 +6,11 @@ name : OldCam
 version: Nexus-sweet
 steps:
  - name: Nexus
-   image: nexgang/ubuntu:latest
+   image: panchajanya1999/archlinux:latest
    environment:
      token:
        from_secret: token
      chat_id:
        from_secret: chat_id
    commands:
-     - /noclone3 bash build.sh --proton --lld
+     - bash build.sh --proton --lld
