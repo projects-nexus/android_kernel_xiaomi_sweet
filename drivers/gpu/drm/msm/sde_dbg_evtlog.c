@@ -56,56 +56,6 @@ static bool _sde_evtlog_is_filtered_no_lock(
 	return rc;
 }
 
-bool sde_evtlog_is_enabled(struct sde_dbg_evtlog *evtlog, u32 flag)
-{
-	return evtlog && (evtlog->enable & flag);
-}
-
-void sde_evtlog_log(struct sde_dbg_evtlog *evtlog, const char *name, int line,
-		int flag, ...)
-{
-	unsigned long flags;
-	int i, val = 0;
-	va_list args;
-	struct sde_dbg_evtlog_log *log;
-
-	if (!evtlog)
-		return;
-
-	if (!sde_evtlog_is_enabled(evtlog, flag))
-		return;
-
-	spin_lock_irqsave(&evtlog->spin_lock, flags);
-
-	if (_sde_evtlog_is_filtered_no_lock(evtlog, name))
-		goto exit;
-
-	log = &evtlog->logs[evtlog->curr];
-	log->time = ktime_to_us(ktime_get());
-	log->name = name;
-	log->line = line;
-	log->data_cnt = 0;
-	log->pid = current->pid;
-
-	va_start(args, flag);
-	for (i = 0; i < SDE_EVTLOG_MAX_DATA; i++) {
-
-		val = va_arg(args, int);
-		if (val == SDE_EVTLOG_DATA_LIMITER)
-			break;
-
-		log->data[i] = val;
-	}
-	va_end(args);
-	log->data_cnt = i;
-	evtlog->curr = (evtlog->curr + 1) % SDE_EVTLOG_ENTRY;
-	evtlog->last++;
-
-	trace_sde_evtlog(name, line, log->data_cnt, log->data);
-exit:
-	spin_unlock_irqrestore(&evtlog->spin_lock, flags);
-}
-
 /* always dump the last entries which are not dumped yet */
 static bool _sde_evtlog_dump_calc_range(struct sde_dbg_evtlog *evtlog,
 		bool update_last_entry, bool full_dump)
@@ -183,37 +133,6 @@ exit:
 	spin_unlock_irqrestore(&evtlog->spin_lock, flags);
 
 	return off;
-}
-
-void sde_evtlog_dump_all(struct sde_dbg_evtlog *evtlog)
-{
-	char buf[SDE_EVTLOG_BUF_MAX];
-	bool update_last_entry = true;
-
-	if (!evtlog)
-		return;
-
-	while (sde_evtlog_dump_to_buffer(evtlog, buf, sizeof(buf),
-				update_last_entry, false)) {
-		pr_info("%s", buf);
-		update_last_entry = false;
-	}
-}
-
-struct sde_dbg_evtlog *sde_evtlog_init(void)
-{
-	struct sde_dbg_evtlog *evtlog;
-
-	evtlog = kzalloc(sizeof(*evtlog), GFP_KERNEL);
-	if (!evtlog)
-		return ERR_PTR(-ENOMEM);
-
-	spin_lock_init(&evtlog->spin_lock);
-	evtlog->enable = SDE_EVTLOG_DEFAULT_ENABLE;
-
-	INIT_LIST_HEAD(&evtlog->filter_list);
-
-	return evtlog;
 }
 
 int sde_evtlog_get_filter(struct sde_dbg_evtlog *evtlog, int index,
@@ -302,18 +221,4 @@ void sde_evtlog_set_filter(struct sde_dbg_evtlog *evtlog, char *filter)
 		list_del(&filter_node->list);
 		kfree(filter_node);
 	}
-}
-
-void sde_evtlog_destroy(struct sde_dbg_evtlog *evtlog)
-{
-	struct sde_evtlog_filter *filter_node, *tmp;
-
-	if (!evtlog)
-		return;
-
-	list_for_each_entry_safe(filter_node, tmp, &evtlog->filter_list, list) {
-		list_del(&filter_node->list);
-		kfree(filter_node);
-	}
-	kfree(evtlog);
 }
